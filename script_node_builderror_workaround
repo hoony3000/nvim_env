@@ -1,0 +1,29 @@
+# (A) 파일 맨 위에: GLIBC<2.25에서 HAVE_* 보정 + getrandom 스텁 정의
+sed -i '1i \
+/* ---- CentOS7 (glibc 2.17) 호환을 위한 강제 가드 & 스텁 ---- */\n\
+#include <errno.h>\n\
+#include <sys/types.h>\n\
+#if !(defined(__GLIBC__) && defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2,25))\n\
+  #undef HAVE_GETRANDOM\n\
+  #define HAVE_GETRANDOM 0\n\
+  #undef HAVE_SYS_RANDOM_H\n\
+  #define HAVE_SYS_RANDOM_H 0\n\
+  /* glibc에 getrandom 심볼이 없으므로, 지역(static) 스텁으로 대체 */\n\
+  static ssize_t getrandom(void *buf, size_t buflen, unsigned int flags) {\n\
+    (void)flags; errno = ENOSYS; return -1; /* 존재하지 않음을 알려 /dev/urandom 경로로 폴백 */\n\
+  }\n\
+#endif\n\
+/* ---------------------------------------------------------- */' deps/cares/src/lib/util/ares_rand.c
+
+# (B) sys/random.h include 조건을 GLIBC>=2.25로 제한
+sed -i 's/#ifdef HAVE_SYS_RANDOM_H/#if defined(HAVE_SYS_RANDOM_H) \&\& defined(__GLIBC__) \&\& defined(__GLIBC_PREREQ) \&\& __GLIBC_PREREQ(2,25)/' \
+  deps/cares/src/lib/util/ares_rand.c
+
+# (C) getrandom() 사용 분기도 같은 조건으로 제한(있을 수 있는 모든 패턴 처리)
+sed -i 's/#if[[:space:]]\+defined(HAVE_GETRANDOM)/#if defined(HAVE_GETRANDOM) \&\& defined(__GLIBC__) \&\& defined(__GLIBC_PREREQ) \&\& __GLIBC_PREREQ(2,25)/' \
+  deps/cares/src/lib/util/ares_rand.c
+sed -i 's/#if[[:space:]]\+HAVE_GETRANDOM/#if HAVE_GETRANDOM \&\& defined(__GLIBC__) \&\& defined(__GLIBC_PREREQ) \&\& __GLIBC_PREREQ(2,25)/' \
+  deps/cares/src/lib/util/ares_rand.c
+
+# 확인(해당 키워드가 보이면 OK)
+grep -nE 'sys/random.h|HAVE_GETRANDOM|getrandom\(' deps/cares/src/lib/util/ares_rand.c | sed -n '1,120p'
