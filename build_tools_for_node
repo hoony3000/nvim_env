@@ -1,0 +1,75 @@
+# binutils
+cd "$PREFIX/src"
+tar xf binutils-2.41.tar.xz
+mkdir -p "$PREFIX/build/binutils" && cd "$PREFIX/build/binutils"
+"$PREFIX/src/binutils-2.41/configure" --prefix="$PREFIX" --disable-werror
+make -j$(nproc) && make install
+hash -r
+
+# GMP
+cd "$PREFIX/src" && tar xf gmp-6.3.0.tar.xz
+mkdir -p "$PREFIX/build/gmp" && cd "$PREFIX/build/gmp"
+"$PREFIX/src/gmp-6.3.0/configure" --prefix="$PREFIX" --enable-cxx
+make -j$(nproc) && make install
+
+# MPFR
+cd "$PREFIX/src" && tar xf mpfr-4.2.1.tar.xz
+mkdir -p "$PREFIX/build/mpfr" && cd "$PREFIX/build/mpfr"
+"$PREFIX/src/mpfr-4.2.1/configure" --prefix="$PREFIX" --with-gmp="$PREFIX"
+make -j$(nproc) && make install
+
+# MPC
+cd "$PREFIX/src" && tar xf mpc-1.3.1.tar.gz
+mkdir -p "$PREFIX/build/mpc" && cd "$PREFIX/build/mpc"
+"$PREFIX/src/mpc-1.3.1/configure" --prefix="$PREFIX" --with-gmp="$PREFIX" --with-mpfr="$PREFIX"
+make -j$(nproc) && make install
+
+# ISL
+cd "$PREFIX/src" && tar xf isl-0.24.tar.xz
+mkdir -p "$PREFIX/build/isl" && cd "$PREFIX/build/isl"
+"$PREFIX/src/isl-0.24/configure" --prefix="$PREFIX" --with-gmp-prefix="$PREFIX"
+make -j$(nproc) && make install
+
+# gcc
+export PREFIX="$HOME/opt"
+export PATH="$PREFIX/bin:$PATH"
+export LD_LIBRARY_PATH="$PREFIX/lib64:$PREFIX/lib:${LD_LIBRARY_PATH}"
+
+gcc --version
+python3 --version
+
+cd "$PREFIX/src" && tar xf gcc-10.5.0.tar.xz
+mkdir -p "$PREFIX/build/gcc" && cd "$PREFIX/build/gcc"
+"$PREFIX/src/gcc-10.5.0/configure" \
+  --prefix="$PREFIX" \
+  --disable-multilib \
+  --enable-languages=c,c++ \
+  --with-gmp="$PREFIX" --with-mpfr="$PREFIX" --with-mpc="$PREFIX" --with-isl="$PREFIX"
+make -j$(nproc) bootstrap
+make install
+hash -r
+
+# node
+cd "$PREFIX/src"
+tar xf node-v20.*.tar.*      # 예: node-v20.12.2.tar.xz
+cd node-v20.*
+
+# 반드시 홈에 설치한 툴체인 사용
+export CC="$PREFIX/bin/gcc"
+export CXX="$PREFIX/bin/g++"
+export PYTHON="$PREFIX/bin/python3"
+
+# 기본(소형 ICU)로 충분. glibc는 시스템(2.17) 그대로 사용.
+./configure --prefix="$PREFIX/node-20"
+
+make -j"$(nproc)"
+make install
+
+# 편의 링크 & PATH 등록
+ln -sfn "$PREFIX/node-20" "$PREFIX/node-current"
+echo 'export PATH="$HOME/opt/node-current/bin:$PATH"' >> "$HOME/.bashrc"
+hash -r
+
+# 확인
+"$PREFIX/node-current/bin/node" -v
+"$PREFIX/node-current/bin/npm" -v
